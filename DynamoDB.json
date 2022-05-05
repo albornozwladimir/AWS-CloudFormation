@@ -1,0 +1,110 @@
+{
+    "Description": "Infra que permite crear una tabla DynamoDB con capacidad de escalado y un rol asociado",
+    "Resources": {
+      "Nombre_recurso": {
+        "Type": "AWS::DynamoDB::Table",
+        "DeletionPolicy": "Retain",
+        "Properties": {
+          "TableName":"NOMBRE_TABLA",
+          "AttributeDefinitions": [
+            {
+              "AttributeName":"ATRIBUTE",
+              "AttributeType":"TIPO_ATRIBUTO"
+            }
+          ],
+          "KeySchema": [
+            {
+              "AttributeName": "ATRIBUTE",
+              "KeyType": "HASH"
+            }
+          ],
+          "ProvisionedThroughput": {
+            "ReadCapacityUnits": 5,
+            "WriteCapacityUnits": 5
+          }
+        }
+      },
+      "WriteCapacityScalableTarget": {
+        "Type": "AWS::ApplicationAutoScaling::ScalableTarget",
+        "Properties": {
+          "MaxCapacity": 15,
+          "MinCapacity": 5,
+          "ResourceId": { "Fn::Join": [
+            "/",
+            [
+              "table",
+              { "Ref": "Nombre_recurso" }
+            ]
+          ] },
+          "RoleARN": {
+            "Fn::GetAtt": ["ScalingRole", "Arn"]
+          },
+          "ScalableDimension": "dynamodb:table:WriteCapacityUnits",
+          "ServiceNamespace": "dynamodb"
+        }
+      },
+      "ScalingRole": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": [
+                    "application-autoscaling.amazonaws.com"
+                  ]
+                },
+                "Action": [
+                  "sts:AssumeRole"
+                ]
+              }
+            ]
+          },
+          "Path": "/",
+          "Policies": [
+            {
+              "PolicyName": "root",
+              "PolicyDocument": {
+                "Version": "FECHA_VERSION",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "dynamodb:DescribeTable",
+                      "dynamodb:UpdateTable",
+                      "cloudwatch:PutMetricAlarm",
+                      "cloudwatch:DescribeAlarms",
+                      "cloudwatch:GetMetricStatistics",
+                      "cloudwatch:SetAlarmState",
+                      "cloudwatch:DeleteAlarms"
+                    ],
+                    "Resource": "*"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "WriteScalingPolicy": {
+        "Type": "AWS::ApplicationAutoScaling::ScalingPolicy",
+        "Properties": {
+          "PolicyName": "WriteAutoScalingPolicy",
+          "PolicyType": "TargetTrackingScaling",
+          "ScalingTargetId": {
+            "Ref": "WriteCapacityScalableTarget"
+          },
+          "TargetTrackingScalingPolicyConfiguration": {
+            "TargetValue": 50.0,
+            "ScaleInCooldown": 60,
+            "ScaleOutCooldown": 60,
+            "PredefinedMetricSpecification": {
+              "PredefinedMetricType": "DynamoDBWriteCapacityUtilization"
+            }
+          }
+        }
+      }
+  }
+}
