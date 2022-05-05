@@ -1,0 +1,58 @@
+{
+  "Description": "Infraestructura de ejemplo que permite crear e invocar lambda auto.",
+  "Resources": {
+    "Nombre_funcion": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "FunctionName": "NOMBRE_FUNCION_LAMBDA",
+        "Description": "DESCRIPCIÓN_FUNCION_LAMBDA",
+        "Role": "INGRESAR_ROL_CREADO_EN_AWS",
+        "PackageType": "Image",
+        "Code": {
+          "ImageUri": "URI_IMAGEN_DOCKER_Amazon_ECR"
+        },
+        "MemorySize": 120,
+        "Timeout": 120,
+        "TracingConfig": {
+          "Mode": "Active"
+        }   
+      }
+    },
+    "ScheduledRule": {
+       "Type": "AWS::Events::Rule",
+       "DependsOn": "Nombre_funcion",
+       "Properties": {
+          "Name": "CRONTAB",
+          "Description": "ScheduledRule",
+          "ScheduleExpression": "cron(0 7 * * ? *)",
+          "State": "ENABLED",
+          "Targets": [
+             {
+                "Arn": {
+                   "Fn::GetAtt": [
+                      "Nombre_funcion",
+                      "Arn"
+                   ]
+                },
+                "Id": "TargetFunctionV1"
+             }
+          ]
+       }
+    },
+    "PermissionForEventsToInvokeLambda": {
+       "Type": "AWS::Lambda::Permission",
+       "DependsOn": "Nombre_funcion",
+       "Properties": {
+          "FunctionName": {"Ref":"Nombre_funcion"},
+          "Action": "lambda:InvokeFunction",
+          "Principal": "events.amazonaws.com",
+          "SourceArn": {
+             "Fn::GetAtt": [
+                "ScheduledRule",
+                "Arn"
+             ]
+          }
+       }
+    }
+  }
+}
